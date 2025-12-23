@@ -3,6 +3,7 @@ from pydantic import BaseModel
 import random
 import tempfile
 import os
+import threading
 
 import utility.thingspeak_services as srv
 from utility.waste_predict import predict_waste
@@ -26,7 +27,7 @@ def set_bintoopen(value: int):
     return {"bintoopen": value, "success": success}
 
 @app.get("/binfull/set/{value}")
-def set_binfull(value: int, background_tasks: BackgroundTasks):
+def set_binfull(value: int):
 
     BIN_CATEGORY_MAP = {
         1: "ewaste",
@@ -45,14 +46,18 @@ def set_binfull(value: int, background_tasks: BackgroundTasks):
     if value in BIN_CATEGORY_MAP:
         category = BIN_CATEGORY_MAP[value]
 
-        # 🔥 run mail in background
-        background_tasks.add_task(
-            send_bin_alert_mail,
-            receiver_email=settings.email_admin,
-            category=category
-        )
+        # ✅ run mail in a separate thread
+        threading.Thread(
+            target=send_bin_alert_mail,
+            kwargs={
+                "receiver_email": settings.email_admin,
+                "category": category
+            },
+            daemon=True
+        ).start()
 
     return "success"
+
 
 
 # -----------------------------
