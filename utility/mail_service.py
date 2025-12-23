@@ -4,15 +4,12 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from utility.settings import settings
 
+
 def send_bin_alert_mail(
     receiver_email: str,
     category: str,
     location: str = "AutoSortBin",
 ):
-    """
-    Robust, non-blocking SMTP mail sender (Render-safe)
-    """
-
     print("📨 Mail task started")
     print("Receiver:", receiver_email)
     print("Category:", category)
@@ -29,46 +26,26 @@ def send_bin_alert_mail(
     msg["Subject"] = subject
     msg.attach(MIMEText(body, "plain"))
 
-    server = None
-
     try:
-        # ⏱️ hard timeout → prevents hanging forever
-        server = smtplib.SMTP(
-            host="smtp.gmail.com",
-            port=587,
-            timeout=10
-        )
+        # 🔥 Explicit network check
+        socket.create_connection(("smtp.gmail.com", 465), timeout=10)
 
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
-
+        # ✅ SSL SMTP (works on Render)
+        server = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20)
         server.login(
             settings.email_sender,
             settings.email_app_password
         )
-
         server.sendmail(
             settings.email_sender,
             receiver_email,
             msg.as_string()
         )
+        server.quit()
 
         print("✅ Mail sent successfully")
         return True
 
-    except (smtplib.SMTPException, socket.timeout) as e:
-        print("❌ Mail failed:", repr(e))
-        return False
-
     except Exception as e:
-        print("🔥 Unexpected mail error:", repr(e))
+        print("❌ Mail error:", repr(e))
         return False
-
-    finally:
-        if server:
-            try:
-                server.quit()
-            except Exception:
-                pass
-
