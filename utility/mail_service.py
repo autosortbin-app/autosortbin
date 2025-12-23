@@ -1,15 +1,19 @@
 import smtplib
+import socket
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from utility.settings import settings
-
 
 def send_bin_alert_mail(
     receiver_email: str,
     category: str,
     location: str = "AutoSortBin",
 ):
-    print("📧 Mail task started")
+    """
+    Robust, non-blocking SMTP mail sender (Render-safe)
+    """
+
+    print("📨 Mail task started")
     print("Receiver:", receiver_email)
     print("Category:", category)
 
@@ -25,23 +29,46 @@ def send_bin_alert_mail(
     msg["Subject"] = subject
     msg.attach(MIMEText(body, "plain"))
 
+    server = None
+
     try:
-        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)
+        # ⏱️ hard timeout → prevents hanging forever
+        server = smtplib.SMTP(
+            host="smtp.gmail.com",
+            port=587,
+            timeout=10
+        )
+
+        server.ehlo()
         server.starttls()
+        server.ehlo()
+
         server.login(
             settings.email_sender,
             settings.email_app_password
         )
+
         server.sendmail(
             settings.email_sender,
             receiver_email,
             msg.as_string()
         )
-        server.quit()
 
         print("✅ Mail sent successfully")
         return True
 
-    except Exception as e:
-        print("❌ Mail error:", str(e))
+    except (smtplib.SMTPException, socket.timeout) as e:
+        print("❌ Mail failed:", repr(e))
         return False
+
+    except Exception as e:
+        print("🔥 Unexpected mail error:", repr(e))
+        return False
+
+    finally:
+        if server:
+            try:
+                server.quit()
+            except Exception:
+                pass
+
