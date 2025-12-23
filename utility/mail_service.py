@@ -9,9 +9,9 @@ def send_bin_alert_mail(
     category: str,
     location: str = "AutoSortBin",
 ):
-    """
-    Sends bin full alert mail.
-    """
+    print("📧 Mail task started")
+    print("Receiver:", receiver_email)
+    print("Category:", category)
 
     subject = f"Bin Full Alert: {category.capitalize()} Bin"
     body = (
@@ -26,7 +26,7 @@ def send_bin_alert_mail(
     msg.attach(MIMEText(body, "plain"))
 
     try:
-        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)
         server.starttls()
         server.login(
             settings.email_sender,
@@ -37,14 +37,11 @@ def send_bin_alert_mail(
             receiver_email,
             msg.as_string()
         )
+        server.quit()
+
+        print("✅ Mail sent successfully")
         return True
 
     except Exception as e:
-        print("Mail error:", e)
+        print("❌ Mail error:", str(e))
         return False
-
-    finally:
-        try:
-            server.quit()
-        except:
-            pass
