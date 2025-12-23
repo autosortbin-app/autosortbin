@@ -5,5 +5,5 @@ requests
 pydantic
 pydantic-settings
 tflite-runtime==2.14.0
-numpy
+numpy<2.0
 Pillow
