@@ -1,7 +1,4 @@
-import smtplib
-import socket
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import requests
 from utility.settings import settings
 
 
@@ -9,43 +6,53 @@ def send_bin_alert_mail(
     receiver_email: str,
     category: str,
     location: str = "AutoSortBin",
-):
+) -> bool:
+    """
+    Send bin-full alert email using Brevo (Sendinblue) HTTP API.
+    Works on Render (no SMTP).
+    """
+
     print("📨 Mail task started")
     print("Receiver:", receiver_email)
     print("Category:", category)
 
-    subject = f"Bin Full Alert: {category.capitalize()} Bin"
-    body = (
-        f"The {category} bin is full and requires emptying.\n\n"
-        f"Location: {location}"
-    )
+    url = "https://api.brevo.com/v3/smtp/email"
 
-    msg = MIMEMultipart()
-    msg["From"] = settings.email_sender
-    msg["To"] = receiver_email
-    msg["Subject"] = subject
-    msg.attach(MIMEText(body, "plain"))
+    payload = {
+        "sender": {
+            "email": settings.email_sender,
+            "name": "AutoSortBin"
+        },
+        "to": [
+            {"email": receiver_email}
+        ],
+        "subject": f"Bin Full Alert: {category.capitalize()} Bin",
+        "textContent": (
+            f"The {category} bin is full and requires emptying.\n\n"
+            f"Location: {location}"
+        )
+    }
+
+    headers = {
+        "accept": "application/json",
+        "api-key": settings.brevo_api_key,
+        "content-type": "application/json"
+    }
 
     try:
-        # 🔥 Explicit network check
-        socket.create_connection(("smtp.gmail.com", 465), timeout=10)
-
-        # ✅ SSL SMTP (works on Render)
-        server = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20)
-        server.login(
-            settings.email_sender,
-            settings.email_app_password
+        response = requests.post(
+            url,
+            json=payload,
+            headers=headers,
+            timeout=10
         )
-        server.sendmail(
-            settings.email_sender,
-            receiver_email,
-            msg.as_string()
-        )
-        server.quit()
 
-        print("✅ Mail sent successfully")
-        return True
+        print("📡 Brevo response code:", response.status_code)
+        print("📨 Brevo response:", response.text)
+
+        # Brevo returns 201 for success
+        return response.status_code == 201
 
     except Exception as e:
-        print("❌ Mail error:", repr(e))
+        print("❌ Mail API error:", repr(e))
         return False
