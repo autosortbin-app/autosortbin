@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, BackgroundTasks
 from pydantic import BaseModel
 import random
 import tempfile
@@ -25,9 +25,9 @@ def set_bintoopen(value: int):
     success = srv.write_bintoopen(value)
     return {"bintoopen": value, "success": success}
 
-
 @app.get("/binfull/set/{value}")
-def set_binfull(value: int):
+def set_binfull(value: int, background_tasks: BackgroundTasks):
+
     BIN_CATEGORY_MAP = {
         1: "ewaste",
         2: "glass",
@@ -36,21 +36,24 @@ def set_binfull(value: int):
         5: "paper",
         6: "plastic",
     }
+
     success = srv.write_binfull(value)
 
     if not success:
         return "failure"
 
-    # Send mail ONLY when a bin is marked full
     if value in BIN_CATEGORY_MAP:
         category = BIN_CATEGORY_MAP[value]
-        status_mail = send_bin_alert_mail(
+
+        # 🔥 run mail in background
+        background_tasks.add_task(
+            send_bin_alert_mail,
             receiver_email=settings.email_admin,
             category=category
         )
-        print(f"mail status: {status_mail}")
 
     return "success"
+
 
 # -----------------------------
 # READ (latest value)
